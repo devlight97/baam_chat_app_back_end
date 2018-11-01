@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Login</title>
+    <link rel="stylesheet" href="/assets/css/login.css">
+</head>
+<body>
+    <h2 class="app-title">CHAT APP</h1>
+    <form action="/gotochat" method="post" class="login-form">
+        <label for="name">Nhập tên bạn muốn dùng để trò truyện</label> <br>
+        <input type="text" name="name" id="txt-name">
+        <input type="submit" name="btnSubmit" value="Vào chat" id="btn-submit">
+    </form>
+    <p style="color: red"><%= msg %></p>
+</body>
+</html>
