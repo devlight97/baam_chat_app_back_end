@@ -1,14 +1,17 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var bodyParser = require("body-parser");
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const createError = require('http-errors');
+const express = require('express');
+const fs = require('fs');
+const bodyParser = require("body-parser");
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const mongoose = require('mongoose');
+const db = require('./config/database');
+const setAPI = require('./api');
+const setSocket = require('./sockets');
 
-var app = express();
+const app = express();
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const indexRouter = require('./routes/index');
 
 
 // view engine setup
@@ -21,16 +24,42 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/assets", express.static(__dirname + "/public"));
 
+
+// cho phép tên miền khác gọi api
+app.use(function (req, res, next) {
+
+  // Website you wish to allow to connect
+  res.setHeader('Access-Control-Allow-Origin', 'https://localhost:8008');
+
+  // Request methods you wish to allow
+  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS,GET,PUT,POST,DELETE');
+
+  // Request headers you wish to allow
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+  // Set to true if you need the website to include cookies in the requests sent
+  // to the API (e.g. in case you use sessions)
+  res.setHeader('Access-Control-Allow-Credentials', true);
+
+  // Pass to next layer of middleware
+  next();
+
+});
+
+// set routing and api.
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+setAPI(app);
+
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
+mongoose.connect(db.getLinkToConnectDB_dev(), { useNewUrlParser: true });
+
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
@@ -40,59 +69,12 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-var server = require("http").createServer(app);
-var io = require("socket.io")(server);
-server.listen(8080);
-
-var USERS = [];
-
-io.on("connection", function (socket) {
-  // thêm user vào list đang online
-  socket.on("add-user-connect", function (name) {
-    console.log(name + " vừa mới connect");
-    var isPush = true;
-    for ( user of USERS ) {
-      if ( name === user.name ) {
-        socket.emit("goto-login");
-        isPush = false;
-        break;
-      }
-    }
-    if ( isPush ) {
-      USERS.push({
-        id: socket.id,
-        name
-      });
-    }
-    io.sockets.emit("get-all-user", USERS);
-  });
-
-  // Xóa user khỏi list online
-  socket.on("disconnect", function () {
-    var indexDelete = null;
-    for ( let i = 0; i < USERS.length; i++ ) {
-      if ( USERS[i].id === socket.id ) {
-        indexDelete = i;
-        break;
-      }
-    }
-    if (indexDelete !== null) {
-      io.sockets.emit("delete-user", USERS[indexDelete]);
-      USERS.splice(indexDelete, 1);
-    }
-  });
-
-  // gửi tin nhắn
-  socket.on("send-message-to-server", function (from, to, msg) {
-    let toId = "";
-    for ( user of USERS ) {
-      if ( user.name === to ) {
-        toId = user.id;
-        break;
-      }
-    }
-
-    io.to(toId).emit("send-message-to-client", from, msg);
-  });
-  
+// const options = {
+//   key: fs.readFileSync('./file.pem'),
+//   cert: fs.readFileSync('./file.crt')
+// };
+const server = require("http").createServer(app);
+setSocket(server);
+server.listen(8080, () => {
+  console.log(`Listening on port 8080`);
 });
